@@ -49,8 +49,9 @@ router.post("/login", async (req, res) => {
 
     res.json({ token, usuario: { id: usuario._id, nombre: usuario.nombre, email: usuario.email } });
   } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
+  console.error("❌ Error en /auth/login:", err); // 👈 imprime el error real en consola
+  res.status(500).json({ error: err.message || "Error en el servidor" });
+}
 });
 
 export default router;
