@@ -1,44 +1,38 @@
 import bcrypt from "bcryptjs";
-import jwt from "jsonwebtoken";
-import { Usuario } from "../models/Usuario.js";
+import { User } from "../models/User.js";
+import { generateToken } from "../utils/generateToken.js";
 
-// 👉 Registro
 export const register = async (req, res) => {
   try {
-    const { nombre, email, password } = req.body;
-    const existe = await Usuario.findOne({ email });
-    if (existe) return res.status(400).json({ msg: "El usuario ya existe" });
+    const { nombre, email, password, isAdmin } = req.body;
+    const exists = await User.findOne({ email });
+    if (exists) return res.status(400).json({ msg: "Usuario ya existe" });
 
     const salt = await bcrypt.genSalt(10);
-    const hashedPassword = await bcrypt.hash(password, salt);
+    const hashed = await bcrypt.hash(password, salt);
 
-    const nuevoUsuario = new Usuario({ nombre, email, password: hashedPassword });
-    await nuevoUsuario.save();
+    const user = new User({ nombre, email, password: hashed, isAdmin: !!isAdmin });
+    await user.save();
 
-    res.json({ msg: "Usuario registrado con éxito" });
+    const token = generateToken(user);
+    res.json({ token, usuario: { id: user._id, nombre: user.nombre, email: user.email, isAdmin: user.isAdmin }});
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 };
 
-// 👉 Login
 export const login = async (req, res) => {
   try {
     const { email, password } = req.body;
-    const usuario = await Usuario.findOne({ email });
-    if (!usuario) return res.status(400).json({ msg: "Usuario no encontrado" });
+    const user = await User.findOne({ email });
+    if (!user) return res.status(400).json({ msg: "Usuario no encontrado" });
 
-    const esValido = await bcrypt.compare(password, usuario.password);
-    if (!esValido) return res.status(400).json({ msg: "Credenciales inválidas" });
+    const valid = await bcrypt.compare(password, user.password);
+    if (!valid) return res.status(400).json({ msg: "Credenciales inválidas" });
 
-    const token = jwt.sign({ id: usuario._id }, process.env.JWT_SECRET, { expiresIn: "1h" });
-
-    res.json({
-      token,
-      usuario: { id: usuario._id, nombre: usuario.nombre, email: usuario.email },
-    });
+    const token = generateToken(user);
+    res.json({ token, usuario: { id: user._id, nombre: user.nombre, email: user.email, isAdmin: user.isAdmin }});
   } catch (err) {
-    console.error("❌ Error en login:", err);
-    res.status(500).json({ error: err.message || "Error en el servidor" });
+    res.status(500).json({ error: err.message });
   }
 };
